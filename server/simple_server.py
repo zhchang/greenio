@@ -24,3 +24,6 @@ class SimpleServer(asyncore.dispatcher):
     def routine(self):
         asyncore.loop()
 
+    def serve(self):
+        self.glet.switch()
+
