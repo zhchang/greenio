@@ -138,6 +138,11 @@ def select_poller(timeout=0.0, map=None):
                 w.append(fd)
             if is_r or is_w:
                 e.append(fd)
+            if obj.timeout > 0:
+                if obj.timeout <= now:
+                    obj.handle_timeout()
+                else:
+                    timeout = obj.timeout-now
         if [] == r == w == e:
             time.sleep(timeout)
             return
@@ -181,6 +186,12 @@ def poll_poller(timeout=0.0, map=None):
             # accepting sockets should not be writable
             if obj.writable() and not obj.accepting:
                 flags |= select.POLLOUT
+            if obj.timeout > 0:
+                if obj.timeout <= now:
+                    obj.handle_timeout()
+                else:
+                    timeout = obj.timeout-now
+
             if flags:
                 pollster.register(fd, flags)
         try:
@@ -209,6 +220,11 @@ def epoll_poller(timeout=0.0, map=None):
                 flags |= select.POLLIN | select.POLLPRI
             if obj.writable():
                 flags |= select.POLLOUT
+            if obj.timeout > 0:
+                if obj.timeout <= now:
+                    obj.handle_timeout()
+                else:
+                    timeout = obj.timeout-now
             if flags:
                 # Only check for exceptions if object was either readable
                 # or writable.
@@ -234,12 +250,18 @@ def kqueue_poller(timeout=0.0, map=None):
         kqueue = select.kqueue()
         flags = select.KQ_EV_ADD | select.KQ_EV_ENABLE
         selectables = 0
+        now = time.time()
         for fd, obj in map.items():
             filter = 0
             if obj.readable():
                 filter |= select.KQ_FILTER_READ
             if obj.writable():
                 filter |= select.KQ_FILTER_WRITE
+            if obj.timeout > 0:
+                if obj.timeout <= now:
+                    obj.handle_timeout()
+                else:
+                    timeout = obj.timeout-now
             if filter:
                 ev = select.kevent(fd, filter=filter, flags=flags)
                 kqueue.control([ev], 0)
@@ -287,6 +309,7 @@ class dispatcher:
     closing = False
     addr = None
     ignore_log_types = frozenset(['warning'])
+    timeout = 0
 
     def __init__(self, sock=None, map=None):
         if map is None:
@@ -584,6 +607,13 @@ class dispatcher:
     def handle_close(self):
         self.log_info('unhandled close event', 'warning')
         self.close()
+    
+    def set_timeout(self,delta):
+        self.timeout = time.time() + delta
+    
+    def handle_timeout(self):
+        #overwrite to handle timeout here
+        pass
 
 # ---------------------------------------------------------------------------
 # adds simple buffered output capability, useful for simple clients.

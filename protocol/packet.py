@@ -39,7 +39,7 @@ class PacketIO(asyncore.dispatcher):
         return self.should_write
     
     def doerror(self,error):
-        print 'on error'
+        #print 'on error'
         self.close()
         self.error = error
         self.handler.switch()
@@ -72,10 +72,10 @@ class PacketIO(asyncore.dispatcher):
                 return
             self.temp+= data
             self.nextlen = ord(self.temp[0])*(256**3) + ord(self.temp[1])*(256**2) + ord(self.temp[2]) *256 + ord(self.temp[3])
-            print self.nextlen
+            #print self.nextlen
             self.temp = ''
             if self.nextlen > 1024**2:
-                print self.nextlen
+                #print self.nextlen
                 self.doerror(1)
         else:
             data = self.recv(self.nextlen-len(self.temp))
@@ -90,6 +90,8 @@ class PacketIO(asyncore.dispatcher):
             self.handler.switch()
 
     def handle_close(self):
+        self.socket.close()
+        self.close()
         self.should_read= False
         self.error = -1
         self.handler.switch()
@@ -98,6 +100,7 @@ class PacketIO(asyncore.dispatcher):
 
 
 class PacketHandler:
+    finished = False
     def __init__(self,socket,scheduler):
         self.scheduler = scheduler
         self.glet = greenlet(self.routine)
@@ -108,8 +111,9 @@ class PacketHandler:
         self.packetio.read()
         if self.packetio.error==0:
             self.process()
-        print 'greenlet finished'
+        #print '%s,greenlet finished[%d]'%(self.packetio.socket.fileno(),self.packetio.error)
+        finished = True
 
     def process(self):
-        print self.packetio.input
+        #print self.packetio.input
         pass
